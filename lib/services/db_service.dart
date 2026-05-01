@@ -93,8 +93,13 @@ class DbService {
     );
   }
 
+  Future<void> clearAllData() async {
+    await _db?.delete(tableEntries);
+    await _db?.delete(tableMeta);
+  }
+
   Future<void> clearAllEntries() async {
-    await _db!.delete(tableEntries);
+    await _db?.delete(tableEntries);
   }
 
   Future<void> close() async {

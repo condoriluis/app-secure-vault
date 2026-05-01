@@ -52,10 +52,13 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       if (_pausedTime != null) {
         final timeout = ref.read(securityProvider).autoLockTimeout.duration;
 
-        // Si el timeout es nulo, nunca se bloquea por tiempo
         if (timeout != null) {
           final duration = DateTime.now().difference(_pausedTime!);
-          if (duration >= timeout) {
+          final effectiveTimeout = timeout == Duration.zero
+              ? const Duration(seconds: 60)
+              : timeout;
+
+          if (duration >= effectiveTimeout) {
             ref.read(authServiceProvider).logout();
             navigatorKey.currentState?.pushNamedAndRemoveUntil(
               '/',
@@ -64,7 +67,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
           }
         }
       }
-      _pausedTime = null; // Resetear el tiempo de pausa al volver
+      _pausedTime = null;
     }
   }
 

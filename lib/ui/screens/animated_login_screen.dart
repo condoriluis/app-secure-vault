@@ -52,6 +52,19 @@ class _AnimatedLoginScreenState extends ConsumerState<AnimatedLoginScreen>
     _checkAuthMethods();
     _initializeAnimations();
     _startAnimations();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = ref.read(authServiceProvider);
+      if (auth.wasAutoLocked) {
+        auth.wasAutoLocked = false;
+        showCustomSnackBar(
+          context,
+          'Sesión cerrada por seguridad tras 1 min fuera de la app',
+          backgroundColor: Colors.orange.shade800,
+          durationSeconds: 4,
+        );
+      }
+    });
   }
 
   void _initializeAnimations() {

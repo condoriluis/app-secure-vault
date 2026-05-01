@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:secure_vault/services/crypto_service.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:secure_vault/services/secure_storage_service.dart';
+import 'package:secure_vault/services/db_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
   final CryptoService _cryptoService;
@@ -11,6 +13,7 @@ class AuthService {
 
   SecretKey? _masterKey;
   bool get isAuthenticated => _masterKey != null;
+  bool wasAutoLocked = false;
 
   AuthService(this._cryptoService, this._storageService);
 
@@ -188,6 +191,15 @@ class AuthService {
 
   void logout() {
     _masterKey = null;
+  }
+
+  Future<void> resetAllData() async {
+    await _storageService.deleteAll();
+    final dbService = DbService();
+    await dbService.clearAllEntries();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    logout();
   }
 }
 

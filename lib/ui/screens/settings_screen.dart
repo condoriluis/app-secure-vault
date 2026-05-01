@@ -10,6 +10,7 @@ import 'package:secure_vault/ui/widgets/snackbar_message.dart';
 import 'package:secure_vault/ui/screens/home_screen.dart'
     show vaultListProvider;
 import 'package:secure_vault/providers/security_provider.dart';
+import 'package:secure_vault/ui/screens/auth_check_screen.dart';
 import 'package:share_plus/share_plus.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -377,104 +378,239 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return showDialog<String>(
       context: context,
       barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final isInputEmpty = controller.text.trim().isEmpty;
+
+          return AlertDialog(
+            backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+              side: isDark
+                  ? BorderSide(color: primaryColor.withOpacity(0.3), width: 1.5)
+                  : BorderSide.none,
+            ),
+            title: Row(
+              children: [
+                const Icon(Icons.security_rounded, color: Colors.amber),
+                const SizedBox(width: 12),
+                const Text('Recuperación'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Este respaldo tiene un Master Salt distinto al de tu sesión actual.',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Para recuperarlo, ingresa la Clave Maestra que usabas cuando creaste este respaldo:',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: theme.colorScheme.onSurface.withOpacity(0.8),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: controller,
+                  obscureText: true,
+                  autofocus: true,
+                  onChanged: (value) => setDialogState(() {}),
+                  style: const TextStyle(fontFamily: 'JetBrainsMono'),
+                  decoration: InputDecoration(
+                    labelText: 'Clave Maestra del Respaldo',
+                    labelStyle: const TextStyle(
+                      fontFamily: 'JetBrainsMono',
+                      fontSize: 13,
+                    ),
+                    hintText: 'Clave maestra antiguo',
+                    hintStyle: const TextStyle(
+                      fontFamily: 'JetBrainsMono',
+                      fontSize: 13,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    prefixIcon: const Icon(Icons.lock_reset_rounded),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Nota: Tus registros actuales no se verán afectados.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontStyle: FontStyle.italic,
+                    color: theme.colorScheme.onSurface.withOpacity(0.5),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar'),
+              ),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isInputEmpty
+                        ? [Colors.grey, Colors.grey.shade400]
+                        : [primaryColor, primaryColor.withOpacity(0.8)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: isInputEmpty
+                      ? null
+                      : [
+                          BoxShadow(
+                            color: primaryColor.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                ),
+                child: FilledButton.icon(
+                  onPressed: isInputEmpty
+                      ? null
+                      : () => Navigator.pop(context, controller.text),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    disabledBackgroundColor: Colors.transparent,
+                    disabledForegroundColor: isDark
+                        ? Colors.white30
+                        : Colors.black26,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: const Icon(Icons.history_rounded, size: 20),
+                  label: const Text(
+                    'Recuperar Datos',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _resetApp() async {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final confirm = await showDialog<bool>(
+      context: context,
       builder: (context) => AlertDialog(
         backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
           side: isDark
-              ? BorderSide(color: primaryColor.withOpacity(0.3), width: 1.5)
+              ? BorderSide(color: Colors.red.withOpacity(0.3), width: 1.5)
               : BorderSide.none,
         ),
         title: Row(
           children: [
-            const Icon(Icons.security_rounded, color: Colors.amber),
+            Icon(Icons.warning_amber_rounded, color: Colors.red.shade600),
             const SizedBox(width: 12),
-            const Text('Recuperación'),
+            const Text('Zona de Peligro'),
           ],
         ),
-        content: Column(
+        content: const Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Este respaldo tiene un Master Salt distinto al de tu sesión actual.',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
             Text(
-              'Para recuperarlo, ingresa la Clave Maestra que usabas cuando creaste este respaldo:',
-              style: TextStyle(
-                fontSize: 13,
-                color: theme.colorScheme.onSurface.withOpacity(0.8),
-              ),
+              '¿Estás seguro de que deseas restablecer la aplicación?',
+              style: TextStyle(fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              obscureText: true,
-              autofocus: true,
-              decoration: InputDecoration(
-                labelText: 'Clave Maestra del Respaldo',
-                hintText: 'Ingresa tu password antiguo',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                prefixIcon: const Icon(Icons.lock_reset_rounded),
-              ),
-            ),
-            const SizedBox(height: 8),
+            SizedBox(height: 12),
             Text(
-              'Nota: Tus registros actuales no se verán afectados.',
-              style: TextStyle(
-                fontSize: 11,
-                fontStyle: FontStyle.italic,
-                color: theme.colorScheme.onSurface.withOpacity(0.5),
-              ),
+              'Esta acción es IRREVERSIBLE. Se eliminarán permanentemente:\n\n'
+              '• Todos tus registros y contraseñas\n'
+              '• Tu Clave Maestra y Master Salt\n'
+              '• Tu PIN y configuración Biométrica\n'
+              '• Tus preferencias de tema',
+              style: TextStyle(fontSize: 13),
             ),
           ],
         ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [primaryColor, primaryColor.withOpacity(0.8)],
-              ),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: primaryColor.withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: FilledButton.icon(
-              onPressed: () => Navigator.pop(context, controller.text),
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: Text(
+                    'Cancelar',
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                  ),
                 ),
               ),
-              icon: const Icon(Icons.history_rounded, size: 20),
-              label: const Text(
-                'Recuperar Datos',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    gradient: LinearGradient(
+                      colors: [Colors.red.shade600, Colors.red.shade800],
+                    ),
+                  ),
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text(
+                      'Restablecer Todo',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ],
       ),
     );
+
+    if (confirm == true) {
+      setState(() => _isLoading = true);
+      try {
+        await ref.read(authServiceProvider).resetAllData();
+        ref.invalidate(vaultListProvider);
+
+        if (mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const AuthCheckScreen()),
+            (route) => false,
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          showCustomSnackBar(
+            context,
+            'Error al restablecer: $e',
+            backgroundColor: Colors.red,
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -797,6 +933,47 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 20),
+                _buildSectionTitle('Zona de Peligro', theme),
+                Card(
+                  elevation: 0,
+                  color: isDark
+                      ? Colors.red.withOpacity(0.05)
+                      : Colors.red.shade50,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(
+                      color: isDark
+                          ? Colors.red.withOpacity(0.2)
+                          : Colors.red.shade100,
+                    ),
+                  ),
+                  child: ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.delete_forever_rounded,
+                        color: Colors.red.shade600,
+                      ),
+                    ),
+                    title: Text(
+                      'Restablecer Aplicación',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red.shade700,
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'Borra todos los datos y comienza desde cero.',
+                    ),
+                    onTap: _isLoading ? null : _resetApp,
+                  ),
+                ),
+                const SizedBox(height: 40),
               ],
             ),
             if (_isLoading)

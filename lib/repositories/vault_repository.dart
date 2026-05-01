@@ -61,7 +61,7 @@ class VaultRepository {
             id: row['id'],
             type: VaultType.values.firstWhere(
               (e) => e.name == data['type'],
-              orElse: () => VaultType.login, // Migration for legacy entries
+              orElse: () => VaultType.login,
             ),
             title: data['title'] ?? 'Untitled',
             username: data['username'],
