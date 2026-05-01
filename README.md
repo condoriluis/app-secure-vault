@@ -52,7 +52,7 @@
 1. **Prerrequisitos**: Tener instalado Flutter SDK y las herramientas nativas de Android/iOS.
 2. **Clonar**:
    ```bash
-   git clone https://github.com/tu-usuario/vault.git
+   git clone https://github.com/condoriluis/app-secure-vault.git
    ```
 3. **Dependencias**:
    ```bash
