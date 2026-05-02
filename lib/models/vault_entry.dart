@@ -11,6 +11,7 @@ class VaultEntry {
   final Map<String, dynamic> data;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final DateTime? deletedAt;
 
   VaultEntry({
     required this.id,
@@ -23,6 +24,7 @@ class VaultEntry {
     this.data = const {},
     required this.createdAt,
     required this.updatedAt,
+    this.deletedAt,
   });
 
   VaultEntry copyWith({
@@ -34,6 +36,8 @@ class VaultEntry {
     String? category,
     Map<String, dynamic>? data,
     DateTime? updatedAt,
+    DateTime? deletedAt,
+    bool removeDeletedAt = false,
   }) {
     return VaultEntry(
       id: id,
@@ -46,6 +50,7 @@ class VaultEntry {
       data: data ?? this.data,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: removeDeletedAt ? null : (deletedAt ?? this.deletedAt),
     );
   }
 
@@ -61,6 +66,7 @@ class VaultEntry {
       'data': data,
       'createdAt': createdAt.millisecondsSinceEpoch,
       'updatedAt': updatedAt.millisecondsSinceEpoch,
+      'deletedAt': deletedAt?.millisecondsSinceEpoch,
     };
   }
 
@@ -79,6 +85,9 @@ class VaultEntry {
       data: (json['data'] as Map<String, dynamic>?) ?? {},
       createdAt: DateTime.fromMillisecondsSinceEpoch(json['createdAt'] as int),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(json['updatedAt'] as int),
+      deletedAt: json['deletedAt'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(json['deletedAt'] as int)
+          : null,
     );
   }
 }

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:secure_vault/services/auth_service.dart';
-import 'package:secure_vault/ui/widgets/app_bar.dart';
 
 class AboutScreen extends ConsumerStatefulWidget {
   const AboutScreen({super.key});
@@ -25,7 +23,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
       final packageInfo = await PackageInfo.fromPlatform();
       if (mounted) {
         setState(() {
-          _appVersion = '${packageInfo.version} (${packageInfo.buildNumber})';
+          _appVersion = packageInfo.version;
         });
       }
     } catch (e) {
@@ -62,31 +60,16 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
       ),
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(kToolbarHeight),
-          child: Container(
-            decoration: isDark
-                ? BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        primaryColor.withOpacity(0.08),
-                        primaryColor.withOpacity(0.15),
-                        primaryColor.withOpacity(0.35),
-                        theme.colorScheme.secondary.withOpacity(0.25),
-                      ],
-                      stops: const [0.0, 0.3, 0.7, 1.0],
-                    ),
-                  )
-                : null,
-            child: MyAppBar(
-              isAuthenticated: ref.watch(authServiceProvider).isAuthenticated,
-              appLockCallback: () {
-                ref.read(authServiceProvider).logout();
-              },
-              title: 'Acerca de',
-            ),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          title: const Text(
+            'Acerca de',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+            onPressed: () => Navigator.pop(context),
           ),
         ),
         body: SingleChildScrollView(
@@ -221,7 +204,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                   ],
                 ),
                 child: Text(
-                  'Una aplicación segura para almacenar tus contraseñas y datos sensibles con encriptación de nivel militar.',
+                  'Bóveda personal con cifrado AES-256. Guarda contraseñas, tarjetas, notas, identidades y códigos 2FA. Acceso biométrico, bloqueo automático y respaldo seguro — todo Zero-Knowledge.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
@@ -254,6 +237,17 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                 Colors.orange.shade400,
                 theme,
               ),
+              const SizedBox(height: 16),
+              _buildFeatureCard(
+                Icons.edit_note_rounded,
+                'Editor de Notas Seguras',
+                'Notas con formato enriquecido: negrita, cursiva, colores y más',
+                Colors.purple.shade400,
+                theme,
+              ),
+              const SizedBox(height: 14),
+              // Tipos de bóveda
+              _buildVaultTypesCard(theme, isDark, primaryColor),
               const SizedBox(height: 14),
               Container(
                 padding: const EdgeInsets.all(16),
@@ -312,6 +306,149 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildVaultTypesCard(
+    ThemeData theme,
+    bool isDark,
+    Color primaryColor,
+  ) {
+    final types = [
+      (
+        Icons.lock_rounded,
+        'Login',
+        'Credenciales de sitios web y apps',
+        Colors.blue.shade400,
+      ),
+      (
+        Icons.credit_card_rounded,
+        'Tarjeta de Crédito',
+        'Tarjetas bancarias y de débito',
+        Colors.deepOrange.shade400,
+      ),
+      (
+        Icons.sticky_note_2_rounded,
+        'Nota Segura',
+        'Notas privadas con editor enriquecido',
+        Colors.purple.shade400,
+      ),
+      (
+        Icons.badge_rounded,
+        'Identidad',
+        'DNI, pasaporte y documentos de ID',
+        Colors.teal.shade400,
+      ),
+      (
+        Icons.qr_code_rounded,
+        'TOTP / 2FA',
+        'Códigos de autenticación de dos factores',
+        Colors.amber.shade600,
+      ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [Colors.white.withOpacity(0.15), Colors.white.withOpacity(0.05)]
+              : [Colors.white, Colors.grey.shade50],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withOpacity(0.2)
+              : Colors.grey.withOpacity(0.2),
+          width: 1.5,
+        ),
+        boxShadow: [
+          isDark
+              ? BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                )
+              : BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: primaryColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.category_rounded,
+                  size: 20,
+                  color: primaryColor,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Tipos de Bóveda',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...types.map(
+            (t) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: t.$4.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(t.$1, size: 18, color: t.$4),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          t.$2,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                        Text(
+                          t.$3,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

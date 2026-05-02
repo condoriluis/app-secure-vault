@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:secure_vault/models/vault_entry.dart';
 import 'package:secure_vault/repositories/vault_repository.dart';
@@ -7,7 +8,14 @@ import 'package:uuid/uuid.dart';
 import 'package:secure_vault/ui/widgets/snackbar_message.dart';
 import 'package:secure_vault/services/auth_service.dart';
 import 'package:secure_vault/ui/widgets/vault_type_widgets.dart';
+import 'package:flutter_quill/flutter_quill.dart';
+import 'dart:convert';
 import 'qr_scanner_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:secure_vault/ui/screens/home_screen.dart'
+    show vaultListProvider;
+import 'package:secure_vault/ui/screens/trash_screen.dart'
+    show trashListProvider;
 
 class EntryDetailScreen extends ConsumerStatefulWidget {
   final VaultEntry? entry;
@@ -27,6 +35,7 @@ class _EntryDetailScreenState extends ConsumerState<EntryDetailScreen> {
   late TextEditingController _notesController;
   late TextEditingController _categoryController;
   bool _isObscured = true;
+  QuillController? _quillController;
 
   bool _isEditing = false;
   late bool _isNewEntry;
@@ -57,9 +66,60 @@ class _EntryDetailScreenState extends ConsumerState<EntryDetailScreen> {
     );
 
     _initTypeControllers();
+    _initQuillController();
+
+    _loadCategories();
 
     if (_categoryController.text.isNotEmpty) {
       _sessionCategories.add(_categoryController.text);
+      _saveCategory(_categoryController.text);
+    }
+  }
+
+  Future<void> _loadCategories() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedCats = prefs.getStringList('custom_categories') ?? [];
+    if (mounted) {
+      setState(() {
+        _sessionCategories.addAll(savedCats);
+      });
+    }
+  }
+
+  Future<void> _saveCategory(String category) async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedCats = prefs.getStringList('custom_categories') ?? [];
+    if (!savedCats.contains(category)) {
+      savedCats.add(category);
+      await prefs.setStringList('custom_categories', savedCats);
+    }
+  }
+
+  void _initQuillController() {
+    if (_type != VaultType.secureNote) return;
+
+    final content = widget.entry?.notes ?? '';
+    final isReadOnly = !_isEditing;
+
+    if (content.isEmpty) {
+      _quillController = QuillController.basic()..readOnly = isReadOnly;
+      return;
+    }
+
+    try {
+      final doc = Document.fromJson(jsonDecode(content));
+      _quillController = QuillController(
+        document: doc,
+        selection: const TextSelection.collapsed(offset: 0),
+        readOnly: isReadOnly,
+      );
+    } catch (e) {
+      final doc = Document()..insert(0, content);
+      _quillController = QuillController(
+        document: doc,
+        selection: const TextSelection.collapsed(offset: 0),
+        readOnly: isReadOnly,
+      );
     }
   }
 
@@ -109,6 +169,7 @@ class _EntryDetailScreenState extends ConsumerState<EntryDetailScreen> {
     _passwordController.dispose();
     _notesController.dispose();
     _categoryController.dispose();
+    _quillController?.dispose();
     for (var controller in _dataControllers.values) {
       controller.dispose();
     }
@@ -129,7 +190,9 @@ class _EntryDetailScreenState extends ConsumerState<EntryDetailScreen> {
       type: _type,
       username: _usernameController.text,
       password: _passwordController.text,
-      notes: _notesController.text,
+      notes: _type == VaultType.secureNote && _quillController != null
+          ? jsonEncode(_quillController!.document.toDelta().toJson())
+          : _notesController.text,
       category: _categoryController.text,
       data: data,
       createdAt: widget.entry?.createdAt ?? DateTime.now(),
@@ -290,12 +353,21 @@ class _EntryDetailScreenState extends ConsumerState<EntryDetailScreen> {
     if (confirm == true) {
       try {
         await ref.read(vaultRepositoryProvider).deleteEntry(widget.entry!.id);
-        if (mounted) Navigator.of(context).pop();
+        ref.invalidate(vaultListProvider);
+        ref.invalidate(trashListProvider);
+        if (mounted) {
+          showCustomSnackBar(
+            context,
+            'Movido a la papelera',
+            backgroundColor: Colors.blueGrey,
+          );
+          Navigator.of(context).pop();
+        }
       } catch (e) {
         if (mounted) {
           showCustomSnackBar(
             context,
-            'Error al eliminar: $e',
+            'Error al mover a papelera: $e',
             durationSeconds: 2,
             backgroundColor: Colors.red,
           );
@@ -313,6 +385,20 @@ class _EntryDetailScreenState extends ConsumerState<EntryDetailScreen> {
       durationSeconds: 3,
       backgroundColor: Colors.green.shade600,
     );
+  }
+
+  void _showPasswordGenerator() async {
+    final password = await showDialog<String>(
+      context: context,
+      builder: (context) => const _PasswordGeneratorDialog(),
+    );
+
+    if (password != null && password.isNotEmpty) {
+      setState(() {
+        _passwordController.text = password;
+        _isObscured = false;
+      });
+    }
   }
 
   Future<bool> _requestAuth() async {
@@ -507,7 +593,14 @@ class _EntryDetailScreenState extends ConsumerState<EntryDetailScreen> {
                         color: isDark ? Colors.white : primaryColor,
                         size: 20,
                       ),
-                      onPressed: () => setState(() => _isEditing = true),
+                      onPressed: () {
+                        setState(() {
+                          _isEditing = true;
+                          if (_quillController != null) {
+                            _quillController!.readOnly = false;
+                          }
+                        });
+                      },
                       tooltip: 'Editar',
                     ),
                   ),
@@ -546,6 +639,7 @@ class _EntryDetailScreenState extends ConsumerState<EntryDetailScreen> {
                           _categoryController.text =
                               widget.entry?.category ?? 'General';
                           _initTypeControllers();
+                          _initQuillController();
                         });
                       },
                       tooltip: 'Cancelar',
@@ -638,19 +732,6 @@ class _EntryDetailScreenState extends ConsumerState<EntryDetailScreen> {
                       borderRadius: BorderRadius.circular(20),
                       child: Stack(
                         children: [
-                          Positioned(
-                            right: -20,
-                            bottom: -20,
-                            child: Icon(
-                              Icons.security_rounded,
-                              size: 150,
-                              color:
-                                  (isDark
-                                          ? Colors.white
-                                          : theme.colorScheme.primary)
-                                      .withOpacity(0.03),
-                            ),
-                          ),
                           Padding(
                             padding: const EdgeInsets.all(24),
                             child: Column(
@@ -716,7 +797,11 @@ class _EntryDetailScreenState extends ConsumerState<EntryDetailScreen> {
                                           onPressed: () async {
                                             if (await _requestAuth()) {
                                               _copyToClipboard(
-                                                _notesController.text,
+                                                _type == VaultType.secureNote &&
+                                                        _quillController != null
+                                                    ? _quillController!.document
+                                                          .toPlainText()
+                                                    : _notesController.text,
                                                 'Nota',
                                               );
                                             }
@@ -727,28 +812,35 @@ class _EntryDetailScreenState extends ConsumerState<EntryDetailScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 16),
-                                Text(
-                                  _isObscured
-                                      ? 'Contenido protegido por cifrado de grado militar. Autentíquese para visualizar el texto.'
-                                      : (_notesController.text.isEmpty
-                                            ? 'Sin contenido'
-                                            : _notesController.text),
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    height: 1.6,
-                                    color: _isObscured
-                                        ? (isDark
+                                _isObscured
+                                    ? Text(
+                                        'Nota protegida. Desbloquea para leer.',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          height: 1.6,
+                                          color: isDark
                                               ? Colors.white38
-                                              : Colors.black38)
-                                        : (isDark
-                                              ? Colors.white
-                                              : Colors.black87),
-                                    fontStyle: _isObscured
-                                        ? FontStyle.italic
-                                        : FontStyle.normal,
-                                    fontFamily: 'JetBrainsMono',
-                                  ),
-                                ),
+                                              : Colors.black38,
+                                          fontStyle: FontStyle.italic,
+                                          fontFamily: 'JetBrainsMono',
+                                        ),
+                                      )
+                                    : AbsorbPointer(
+                                        child: DefaultTextStyle.merge(
+                                          style: const TextStyle(
+                                            fontFamily: 'JetBrainsMono',
+                                          ),
+                                          child: QuillEditor.basic(
+                                            controller: _quillController!,
+                                            config: const QuillEditorConfig(
+                                              scrollable: false,
+                                              autoFocus: false,
+                                              expands: false,
+                                              padding: EdgeInsets.zero,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                               ],
                             ),
                           ),
@@ -790,44 +882,123 @@ class _EntryDetailScreenState extends ConsumerState<EntryDetailScreen> {
                               ),
                       ],
                     ),
-                    child: _buildModernTextField(
-                      controller: _notesController,
-                      label: _type == VaultType.secureNote
-                          ? 'Nota Segura'
-                          : 'Notas privadas',
-                      icon: _type == VaultType.secureNote
-                          ? Icons.security_rounded
-                          : Icons.notes_rounded,
-                      readOnly: isViewMode,
-                      obscureText: _type == VaultType.secureNote && _isObscured,
-                      maxLines: (_type == VaultType.secureNote && _isObscured)
-                          ? 1
-                          : 3,
-                      isFirst: true,
-                      isLast: true,
-                      alignLabelWithHint: true,
-                      suffixAction: _type == VaultType.secureNote
-                          ? IconButton(
-                              icon: Icon(
-                                _isObscured
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
-                                color: isDark
-                                    ? Colors.white.withOpacity(0.7)
-                                    : Colors.grey.shade600,
+                    child:
+                        _type == VaultType.secureNote &&
+                            _quillController != null
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 2,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Notas Seguras',
+                                      style: TextStyle(
+                                        color: isDark
+                                            ? Colors.white70
+                                            : Colors.black54,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: Icon(
+                                        _isObscured
+                                            ? Icons.visibility_outlined
+                                            : Icons.visibility_off_outlined,
+                                        color: isDark
+                                            ? Colors.white70
+                                            : Colors.black54,
+                                        size: 20,
+                                      ),
+                                      onPressed: () async {
+                                        if (_isObscured) {
+                                          if (_isNewEntry ||
+                                              await _requestAuth()) {
+                                            setState(() => _isObscured = false);
+                                          }
+                                        } else {
+                                          setState(() => _isObscured = true);
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
                               ),
-                              onPressed: () async {
-                                if (_isObscured) {
-                                  if (_isNewEntry || await _requestAuth()) {
-                                    setState(() => _isObscured = false);
-                                  }
-                                } else {
-                                  setState(() => _isObscured = true);
-                                }
-                              },
-                            )
-                          : null,
-                    ),
+                              if (!_isObscured) ...[
+                                const Divider(height: 0.5),
+                                QuillSimpleToolbar(
+                                  controller: _quillController!,
+                                  config: const QuillSimpleToolbarConfig(
+                                    showFontFamily: false,
+                                    showFontSize: false,
+                                    showStrikeThrough: false,
+                                    showInlineCode: false,
+                                    showColorButton: true,
+                                    showBackgroundColorButton: true,
+                                    showAlignmentButtons: true,
+                                    showListCheck: false,
+                                    showCodeBlock: false,
+                                    showQuote: true,
+                                    showIndent: false,
+                                    showLink: false,
+                                    showDirection: false,
+                                    showSearchButton: false,
+                                    showSubscript: false,
+                                    showSuperscript: false,
+                                    multiRowsDisplay: true,
+                                  ),
+                                ),
+                                const Divider(height: 1),
+                                Padding(
+                                  padding: const EdgeInsets.all(14),
+                                  child: QuillEditor.basic(
+                                    controller: _quillController!,
+                                    config: const QuillEditorConfig(
+                                      scrollable: false,
+                                      autoFocus: false,
+                                      expands: false,
+                                      padding: EdgeInsets.zero,
+                                      placeholder:
+                                          'Escribe tu nota segura aquí...',
+                                    ),
+                                  ),
+                                ),
+                              ] else
+                                Padding(
+                                  padding: const EdgeInsets.all(28),
+                                  child: Center(
+                                    child: Text(
+                                      'Nota protegida. Desbloquea para editar.',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: isDark
+                                            ? Colors.white38
+                                            : Colors.black38,
+                                        fontStyle: FontStyle.italic,
+                                        fontFamily: 'JetBrainsMono',
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          )
+                        : _buildModernTextField(
+                            controller: _notesController,
+                            label: 'Notas privadas',
+                            icon: Icons.notes_rounded,
+                            readOnly: isViewMode,
+                            maxLines: 3,
+                            isFirst: true,
+                            isLast: true,
+                            alignLabelWithHint: true,
+                          ),
                   ),
                 const SizedBox(height: 20),
                 if (_isEditing)
@@ -1023,18 +1194,33 @@ class _EntryDetailScreenState extends ConsumerState<EntryDetailScreen> {
             obscureText: _isObscured,
             fontFamily: 'JetBrainsMono',
             isLast: true,
-            suffixAction: IconButton(
-              icon: Icon(
-                _isObscured
-                    ? Icons.visibility_outlined
-                    : Icons.visibility_off_outlined,
-                color: isDark
-                    ? Colors.white.withOpacity(0.7)
-                    : Colors.grey.shade600,
-              ),
-              onPressed: () {
-                setState(() => _isObscured = !_isObscured);
-              },
+            suffixAction: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(
+                    Icons.auto_fix_high_rounded,
+                    color: isDark
+                        ? Colors.white.withOpacity(0.7)
+                        : Colors.grey.shade600,
+                  ),
+                  onPressed: _showPasswordGenerator,
+                  tooltip: 'Generar Contraseña',
+                ),
+                IconButton(
+                  icon: Icon(
+                    _isObscured
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                    color: isDark
+                        ? Colors.white.withOpacity(0.7)
+                        : Colors.grey.shade600,
+                  ),
+                  onPressed: () {
+                    setState(() => _isObscured = !_isObscured);
+                  },
+                ),
+              ],
             ),
           ),
         ],
@@ -1127,15 +1313,7 @@ class _EntryDetailScreenState extends ConsumerState<EntryDetailScreen> {
   }) {
     return Row(
       children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: primaryColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(icon, size: 20, color: primaryColor),
-        ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 8),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1282,7 +1460,9 @@ class _EntryDetailScreenState extends ConsumerState<EntryDetailScreen> {
           IconButton(
             icon: Icon(
               Icons.qr_code_scanner_rounded,
-              color: isDark ? Colors.white.withOpacity(0.7) : Colors.grey.shade600,
+              color: isDark
+                  ? Colors.white.withOpacity(0.7)
+                  : Colors.grey.shade600,
             ),
             onPressed: _openQRScanner,
             tooltip: 'Escanear QR',
@@ -1292,7 +1472,9 @@ class _EntryDetailScreenState extends ConsumerState<EntryDetailScreen> {
               _isObscured
                   ? Icons.visibility_outlined
                   : Icons.visibility_off_outlined,
-              color: isDark ? Colors.white.withOpacity(0.7) : Colors.grey.shade600,
+              color: isDark
+                  ? Colors.white.withOpacity(0.7)
+                  : Colors.grey.shade600,
             ),
             onPressed: () async {
               if (_isObscured) {
@@ -1470,6 +1652,7 @@ class _EntryDetailScreenState extends ConsumerState<EntryDetailScreen> {
                           _categoryController.text = customCat;
                           _sessionCategories.add(customCat);
                         });
+                        _saveCategory(customCat);
                       }
                     },
                     borderRadius: BorderRadius.circular(12),
@@ -1596,7 +1779,7 @@ class _EntryDetailScreenState extends ConsumerState<EntryDetailScreen> {
   Widget _buildModernTextField({
     required TextEditingController controller,
     required String label,
-    required IconData icon,
+    IconData? icon,
     bool readOnly = false,
     bool obscureText = false,
     bool isFirst = false,
@@ -1651,7 +1834,7 @@ class _EntryDetailScreenState extends ConsumerState<EntryDetailScreen> {
             fontWeight: FontWeight.normal,
           ),
           alignLabelWithHint: alignLabelWithHint,
-          prefixIcon: Icon(icon, color: hintColor),
+          prefixIcon: icon != null ? Icon(icon, color: hintColor) : null,
           suffixIcon: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -2008,6 +2191,238 @@ class _CustomCategoryDialogState extends State<_CustomCategoryDialog> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _PasswordGeneratorDialog extends StatefulWidget {
+  const _PasswordGeneratorDialog();
+
+  @override
+  State<_PasswordGeneratorDialog> createState() =>
+      _PasswordGeneratorDialogState();
+}
+
+class _PasswordGeneratorDialogState extends State<_PasswordGeneratorDialog> {
+  double _length = 12;
+  bool _useUppercase = true;
+  bool _boolLowercase = true;
+  bool _useNumbers = true;
+  bool _useSymbols = true;
+  String _generatedPassword = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _generate();
+  }
+
+  void _generate() {
+    const String upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const String lower = 'abcdefghijklmnopqrstuvwxyz';
+    const String numbers = '0123456789';
+    const String symbols = '!@#\$%&*-_=+';
+
+    String charset = '';
+    if (_useUppercase) charset += upper;
+    if (_boolLowercase) charset += lower;
+    if (_useNumbers) charset += numbers;
+    if (_useSymbols) charset += symbols;
+
+    if (charset.isEmpty) {
+      setState(() => _generatedPassword = '');
+      return;
+    }
+
+    final random = Random.secure();
+    final password = List.generate(
+      _length.toInt(),
+      (index) => charset[random.nextInt(charset.length)],
+    ).join();
+
+    setState(() => _generatedPassword = password);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = theme.colorScheme.primary;
+
+    return AlertDialog(
+      backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: isDark
+            ? BorderSide(color: primaryColor.withOpacity(0.3), width: 1.5)
+            : BorderSide.none,
+      ),
+      title: Row(
+        children: [
+          Icon(Icons.auto_fix_high_rounded, color: primaryColor),
+          const SizedBox(width: 12),
+          const Text(
+            'Generador Seguro',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+          ),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.black26 : Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isDark ? Colors.white10 : Colors.grey.shade200,
+              ),
+            ),
+            child: Text(
+              _generatedPassword.isEmpty
+                  ? 'Selecciona opciones'
+                  : _generatedPassword,
+              style: TextStyle(
+                fontSize: 18,
+                fontFamily: 'JetBrainsMono',
+                fontWeight: FontWeight.bold,
+                color: primaryColor,
+                letterSpacing: 1.2,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Longitud:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                '${_length.toInt()}',
+                style: TextStyle(
+                  color: primaryColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+            ],
+          ),
+          Slider(
+            value: _length,
+            min: 8,
+            max: 64,
+            divisions: 56,
+            activeColor: primaryColor,
+            onChanged: (val) {
+              setState(() => _length = val);
+              _generate();
+            },
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildOption(
+                'A-Z',
+                _useUppercase,
+                (v) => setState(() => _useUppercase = v!),
+              ),
+              _buildOption(
+                'a-z',
+                _boolLowercase,
+                (v) => setState(() => _boolLowercase = v!),
+              ),
+              _buildOption(
+                '0-9',
+                _useNumbers,
+                (v) => setState(() => _useNumbers = v!),
+              ),
+              _buildOption(
+                '!@#',
+                _useSymbols,
+                (v) => setState(() => _useSymbols = v!),
+              ),
+            ],
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        ElevatedButton(
+          onPressed: _generatedPassword.isEmpty
+              ? null
+              : () => Navigator.pop(context, _generatedPassword),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: primaryColor,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: const Text('Usar Contraseña'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOption(String label, bool value, Function(bool?) onChanged) {
+    final theme = Theme.of(context);
+    final primaryColor = theme.colorScheme.primary;
+    final isDark = theme.brightness == Brightness.dark;
+
+    return InkWell(
+      onTap: () {
+        onChanged(!value);
+        _generate();
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: value ? primaryColor.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: value
+                ? primaryColor
+                : (isDark ? Colors.white24 : Colors.grey.shade300),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: Checkbox(
+                value: value,
+                onChanged: (v) {
+                  onChanged(v);
+                  _generate();
+                },
+                activeColor: primaryColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:secure_vault/core/color_theme.dart';
 
 class AppTheme {
@@ -31,11 +32,12 @@ class AppTheme {
       scaffoldBackgroundColor: lightBackground,
 
       // APP BAR
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         centerTitle: true,
         elevation: 0,
         backgroundColor: lightBackground,
         surfaceTintColor: Colors.transparent,
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
         titleTextStyle: TextStyle(
           color: lightTextPrimary,
           fontSize: 20,
@@ -127,11 +129,12 @@ class AppTheme {
       scaffoldBackgroundColor: darkBackground,
 
       // APP BAR
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         centerTitle: true,
         elevation: 0,
         backgroundColor: darkBackground,
         surfaceTintColor: Colors.transparent,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
         titleTextStyle: TextStyle(
           color: darkTextPrimary,
           fontSize: 20,

@@ -2,11 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:secure_vault/models/vault_entry.dart';
 import 'package:secure_vault/repositories/vault_repository.dart';
-import 'package:secure_vault/services/auth_service.dart';
-import 'package:secure_vault/ui/screens/auth_check_screen.dart';
 import 'package:secure_vault/ui/screens/entry_detail_screen.dart';
-import 'package:secure_vault/ui/widgets/app_bar.dart';
 import 'package:secure_vault/ui/widgets/snackbar_message.dart';
+import 'package:secure_vault/ui/screens/trash_screen.dart' show trashListProvider;
 
 enum SortOption { titleAsc, titleDesc, dateNewest, dateOldest }
 
@@ -117,14 +115,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final Set<String> _selectedIds = {};
   bool _isSelectionMode = false;
-  final TextEditingController _searchController = TextEditingController();
-
-  void _appLock() {
-    ref.read(authServiceProvider).logout();
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const AuthCheckScreen()),
-    );
-  }
 
   void _toggleSelection(String id) {
     setState(() {
@@ -291,16 +281,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         await ref.read(vaultRepositoryProvider).deleteEntries(idsToDelete);
 
         // ignore: unused_result
-        ref.refresh(vaultListProvider);
+        ref.invalidate(vaultListProvider);
+        ref.invalidate(trashListProvider);
 
         _exitSelectionMode();
 
         if (mounted) {
           showCustomSnackBar(
             context,
-            '$count elemento${count > 1 ? 's' : ''} eliminado${count > 1 ? 's' : ''}',
+            '$count elemento${count > 1 ? 's movidos' : ' movido'} a la papelera',
             durationSeconds: 3,
-            backgroundColor: Colors.orange,
+            backgroundColor: Colors.blueGrey,
           );
         }
       } catch (e) {
@@ -393,186 +384,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   const SizedBox(width: 8),
                 ],
               )
-            : MyAppBar(
-                isAuthenticated: ref.watch(authServiceProvider).isAuthenticated,
-                appLockCallback: () => _appLock(),
-              ),
+            : PreferredSize(preferredSize: Size.zero, child: SizedBox.shrink()),
         body: Column(
           children: [
             Container(
-              padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: isDark
-                      ? [
-                          Colors.white.withOpacity(0.15),
-                          Colors.white.withOpacity(0.05),
-                        ]
-                      : [Colors.white, Colors.grey.shade50],
-                ),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(24),
-                  bottomRight: Radius.circular(24),
-                ),
-                border: Border(
-                  left: BorderSide(
-                    color: isDark
-                        ? Colors.white.withOpacity(0.2)
-                        : Colors.grey.withOpacity(0.2),
-                    width: 1.5,
-                  ),
-                  right: BorderSide(
-                    color: isDark
-                        ? Colors.white.withOpacity(0.2)
-                        : Colors.grey.withOpacity(0.2),
-                    width: 1.5,
-                  ),
-                  bottom: BorderSide(
-                    color: isDark
-                        ? Colors.white.withOpacity(0.2)
-                        : Colors.grey.withOpacity(0.2),
-                    width: 1.5,
-                  ),
-                ),
-                boxShadow: [
-                  isDark
-                      ? BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        )
-                      : BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                ],
-              ),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
               child: Column(
                 children: [
                   Row(
                     children: [
-                      Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surface,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: theme.dividerColor,
-                              width: 0,
-                            ),
-                            boxShadow: [
-                              if (!isDark)
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                            ],
-                          ),
-                          child: TextField(
-                            controller: _searchController,
-                            autofocus: false,
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurface,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: 'Buscar en tu bóveda...',
-                              hintStyle: TextStyle(
-                                color: theme.colorScheme.onSurface.withOpacity(
-                                  0.5,
-                                ),
-                                fontSize: 14,
-                              ),
-                              prefixIcon: Icon(
-                                Icons.search_rounded,
-                                color: isDark
-                                    ? primaryColor.withOpacity(0.8)
-                                    : primaryColor,
-                              ),
-                              suffixIcon: searchQuery.isNotEmpty
-                                  ? IconButton(
-                                      icon: Icon(
-                                        Icons.clear,
-                                        color: theme.colorScheme.onSurface
-                                            .withOpacity(0.7),
-                                      ),
-                                      onPressed: () {
-                                        _searchController.clear();
-                                        ref
-                                            .read(searchQueryProvider.notifier)
-                                            .set('');
-                                      },
-                                    )
-                                  : null,
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 16,
-                              ),
-                            ),
-                            onChanged: (value) {
-                              ref.read(searchQueryProvider.notifier).set(value);
-                            },
-                            onTapOutside: (event) {
-                              FocusManager.instance.primaryFocus?.unfocus();
-                            },
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 0),
+                      Expanded(child: _buildCategoryBar()),
+                      const SizedBox(width: 8),
                       _buildSortPopupMenu(),
                     ],
                   ),
-                  const SizedBox(height: 1),
-                  _buildCategoryBar(),
                   if (!_isSelectionMode &&
                       (entriesAsync.value?.isNotEmpty ?? false))
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 2, 8, 2),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              filteredEntries.length == entriesAsync.value!.length
-                                  ? '${filteredEntries.length} registros'
-                                  : '${filteredEntries.length} de ${entriesAsync.value!.length} filtrados',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.onSurface.withOpacity(
-                                  0.4,
-                                ),
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            filteredEntries.length == entriesAsync.value!.length
+                                ? '${filteredEntries.length} registros'
+                                : '${filteredEntries.length} filtrados',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: theme.colorScheme.onSurface.withOpacity(
+                                0.5,
                               ),
                             ),
-                            const SizedBox(width: 20), // Espacio mínimo entre textos
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.info_outline_rounded,
-                                  size: 12,
-                                  color: theme.colorScheme.onSurface.withOpacity(
-                                    0.4,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Selección múltiple con toque largo',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: theme.colorScheme.onSurface
-                                        .withOpacity(0.4),
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                              ],
+                          ),
+                          Text(
+                            'Toque largo para seleccionar',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontStyle: FontStyle.italic,
+                              color: theme.colorScheme.onSurface.withOpacity(
+                                0.5,
+                              ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                 ],
@@ -1203,7 +1057,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return PopupMenuButton<SortOption>(
       icon: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(16),

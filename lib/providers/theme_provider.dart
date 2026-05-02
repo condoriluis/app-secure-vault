@@ -22,7 +22,7 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
     : super(
         const ThemeState(
           themeMode: ThemeMode.system,
-          colorThemeId: 'black_night',
+          colorThemeId: 'slate_lead',
         ),
       ) {
     _loadTheme();

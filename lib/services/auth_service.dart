@@ -196,7 +196,7 @@ class AuthService {
   Future<void> resetAllData() async {
     await _storageService.deleteAll();
     final dbService = DbService();
-    await dbService.clearAllEntries();
+    await dbService.clearAllData();
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
     logout();

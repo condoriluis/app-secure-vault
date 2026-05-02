@@ -4,7 +4,7 @@ import 'package:path_provider/path_provider.dart';
 
 class DbService {
   static const _dbName = 'vault.db';
-  static const _dbVersion = 1;
+  static const _dbVersion = 2;
 
   static const tableEntries = 'entries';
   static const tableMeta = 'meta';
@@ -26,7 +26,20 @@ class DbService {
       path = join(documentsDirectory.path, _dbName);
     }
 
-    _db = await openDatabase(path, version: _dbVersion, onCreate: _onCreate);
+    _db = await openDatabase(
+      path,
+      version: _dbVersion,
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+    );
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute(
+        'ALTER TABLE $tableEntries ADD COLUMN deleted_at INTEGER',
+      );
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -37,7 +50,8 @@ class DbService {
         ciphertext BLOB NOT NULL,
         tag BLOB NOT NULL,
         created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
+        updated_at INTEGER NOT NULL,
+        deleted_at INTEGER
       )
     ''');
 

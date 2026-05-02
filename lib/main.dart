@@ -8,6 +8,8 @@ import 'package:secure_vault/services/db_service.dart';
 import 'package:secure_vault/ui/screens/auth_check_screen.dart';
 
 import 'package:secure_vault/providers/security_provider.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_quill/flutter_quill.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,6 +31,8 @@ class MyApp extends ConsumerStatefulWidget {
   ConsumerState<MyApp> createState() => _MyAppState();
 }
 
+bool isPickingFile = false;
+
 class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   DateTime? _pausedTime;
 
@@ -46,26 +50,34 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    final timeout = ref.read(securityProvider).autoLockTimeout.duration;
+
     if (state == AppLifecycleState.paused) {
       _pausedTime = DateTime.now();
+
+      if (timeout == Duration.zero && !isPickingFile) {
+        ref.read(authServiceProvider).logout();
+      }
     } else if (state == AppLifecycleState.resumed) {
-      if (_pausedTime != null) {
-        final timeout = ref.read(securityProvider).autoLockTimeout.duration;
-
-        if (timeout != null) {
-          final duration = DateTime.now().difference(_pausedTime!);
-          final effectiveTimeout = timeout == Duration.zero
-              ? const Duration(seconds: 60)
-              : timeout;
-
-          if (duration >= effectiveTimeout) {
-            ref.read(authServiceProvider).logout();
-            navigatorKey.currentState?.pushNamedAndRemoveUntil(
-              '/',
-              (route) => false,
-            );
-          }
+      if (isPickingFile) {
+        isPickingFile = false;
+        _pausedTime = null;
+        return;
+      }
+      if (_pausedTime != null && timeout != null && timeout != Duration.zero) {
+        final elapsed = DateTime.now().difference(_pausedTime!);
+        if (elapsed >= timeout) {
+          ref.read(authServiceProvider).logout();
+          navigatorKey.currentState?.pushNamedAndRemoveUntil(
+            '/',
+            (route) => false,
+          );
         }
+      } else if (timeout == Duration.zero) {
+        navigatorKey.currentState?.pushNamedAndRemoveUntil(
+          '/',
+          (route) => false,
+        );
       }
       _pausedTime = null;
     }
@@ -83,6 +95,13 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       themeMode: themeState.themeMode,
       theme: AppTheme.buildLightTheme(colorTheme),
       darkTheme: AppTheme.buildDarkTheme(colorTheme),
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        FlutterQuillLocalizations.delegate,
+      ],
+      supportedLocales: const [Locale('en', ''), Locale('es', '')],
       routes: {'/': (context) => const AuthCheckScreen()},
     );
   }

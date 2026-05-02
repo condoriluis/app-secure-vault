@@ -1,17 +1,16 @@
 import 'package:file_picker/file_picker.dart' as fp;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:secure_vault/core/color_theme.dart';
 import 'package:secure_vault/providers/theme_provider.dart';
 import 'package:secure_vault/services/auth_service.dart';
 import 'package:secure_vault/services/backup_service.dart';
-import 'package:secure_vault/ui/widgets/app_bar.dart';
 import 'package:secure_vault/ui/widgets/snackbar_message.dart';
 import 'package:secure_vault/ui/screens/home_screen.dart'
     show vaultListProvider;
 import 'package:secure_vault/providers/security_provider.dart';
 import 'package:secure_vault/ui/screens/auth_check_screen.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:secure_vault/main.dart' show isPickingFile;
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({Key? key}) : super(key: key);
@@ -286,6 +285,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     setState(() => _isLoading = true);
     try {
+      isPickingFile = true;
       final backupService = ref.read(backupServiceProvider);
       final filePath = await backupService.exportVault();
 
@@ -310,6 +310,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (_isLoading) return;
     setState(() => _isLoading = true);
     try {
+      isPickingFile = true;
       final fp.FilePickerResult? result = await fp.FilePicker.pickFiles(
         type: fp.FileType.custom,
         allowedExtensions: ['vault', 'json'],
@@ -538,7 +539,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               '• Todos tus registros y contraseñas\n'
               '• Tu Clave Maestra y Master Salt\n'
               '• Tu PIN y configuración Biométrica\n'
-              '• Tus preferencias de tema',
+              '• Configuraciones y caché de preferencias\n',
               style: TextStyle(fontSize: 13),
             ),
           ],
@@ -575,7 +576,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     child: const Text(
-                      'Restablecer Todo',
+                      'Restablecer',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
@@ -618,7 +619,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
     final isDark = theme.brightness == Brightness.dark;
-    final themeState = ref.watch(themeProvider);
+    ref.watch(themeProvider);
 
     return Container(
       decoration: BoxDecoration(
@@ -639,31 +640,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(kToolbarHeight),
-          child: Container(
-            decoration: isDark
-                ? BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        primaryColor.withOpacity(0.08),
-                        primaryColor.withOpacity(0.15),
-                        primaryColor.withOpacity(0.35),
-                        theme.colorScheme.secondary.withOpacity(0.25),
-                      ],
-                      stops: const [0.0, 0.3, 0.7, 1.0],
-                    ),
-                  )
-                : null,
-            child: MyAppBar(
-              isAuthenticated: ref.watch(authServiceProvider).isAuthenticated,
-              appLockCallback: () {
-                ref.read(authServiceProvider).logout();
-              },
-              title: 'Configuración',
-            ),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          title: const Text(
+            'Configuración',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+            onPressed: () => Navigator.pop(context),
           ),
         ),
         body: Stack(
@@ -671,105 +657,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ListView(
               padding: const EdgeInsets.all(14),
               children: [
-                _buildSectionTitle('Apariencia', theme),
-                Card(
-                  elevation: 0,
-                  color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(
-                      color: isDark
-                          ? Colors.white.withOpacity(0.1)
-                          : Colors.grey.shade200,
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      ListTile(
-                        leading: Icon(
-                          isDark
-                              ? Icons.dark_mode_rounded
-                              : Icons.light_mode_rounded,
-                          color: isDark ? primaryColor : Colors.amber,
-                        ),
-                        title: const Text(
-                          'Modo Oscuro',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        trailing: Switch(
-                          value:
-                              themeState.themeMode == ThemeMode.dark ||
-                              (themeState.themeMode == ThemeMode.system &&
-                                  isDark),
-                          onChanged: (_) =>
-                              ref.read(themeProvider.notifier).toggleTheme(),
-                          activeColor: primaryColor,
-                        ),
-                      ),
-                      Divider(
-                        height: 1,
-                        color: isDark
-                            ? Colors.white.withOpacity(0.1)
-                            : Colors.grey.shade200,
-                      ),
-                      ListTile(
-                        leading: Icon(
-                          Icons.color_lens_rounded,
-                          color: primaryColor,
-                        ),
-                        title: const Text(
-                          'Paleta de Colores',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: ColorThemes.all.map((colorTheme) {
-                              final isSelected =
-                                  themeState.colorThemeId == colorTheme.id;
-                              return GestureDetector(
-                                onTap: () => ref
-                                    .read(themeProvider.notifier)
-                                    .setColorTheme(colorTheme.id),
-                                child: Container(
-                                  margin: const EdgeInsets.only(
-                                    right: 8,
-                                    top: 8,
-                                    bottom: 8,
-                                  ),
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: colorTheme.getPrimary(
-                                      theme.brightness,
-                                    ),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: isSelected
-                                          ? theme.colorScheme.onSurface
-                                          : Colors.transparent,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: isSelected
-                                      ? Icon(
-                                          Icons.check,
-                                          size: 20,
-                                          color: theme.colorScheme.onPrimary,
-                                        )
-                                      : null,
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 6),
                 _buildSectionTitle('Seguridad', theme),
                 Card(
+                  margin: EdgeInsets.zero,
                   elevation: 0,
                   color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
                   shape: RoundedRectangleBorder(
@@ -847,6 +737,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   theme,
                 ),
                 Card(
+                  margin: EdgeInsets.zero,
                   elevation: 0,
                   color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
                   shape: RoundedRectangleBorder(
@@ -936,6 +827,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 20),
                 _buildSectionTitle('Zona de Peligro', theme),
                 Card(
+                  margin: EdgeInsets.zero,
                   elevation: 0,
                   color: isDark
                       ? Colors.red.withOpacity(0.05)

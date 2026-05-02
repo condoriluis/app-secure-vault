@@ -46,6 +46,7 @@ class VaultRepository {
     final entries = <VaultEntry>[];
 
     for (final row in rows) {
+      if (row['deleted_at'] != null) continue; // Skip deleted items
       try {
         final decryptedJson = await _cryptoService.decrypt(
           ciphertext: row['ciphertext'],
@@ -71,10 +72,57 @@ class VaultRepository {
             data: (data['data'] as Map<String, dynamic>?) ?? {},
             createdAt: DateTime.fromMillisecondsSinceEpoch(row['created_at']),
             updatedAt: DateTime.fromMillisecondsSinceEpoch(row['updated_at']),
+            deletedAt: row['deleted_at'] != null
+                ? DateTime.fromMillisecondsSinceEpoch(row['deleted_at'])
+                : null,
           ),
         );
       } catch (e) {
         print('Failed to decrypt entry ${row['id']}: $e');
+      }
+    }
+    return entries;
+  }
+
+  Future<List<VaultEntry>> getDeletedEntries() async {
+    final key = _authService.masterKey;
+    if (key == null) throw Exception('Locked');
+
+    final rows = await _dbService.getAllEntries();
+    final entries = <VaultEntry>[];
+
+    for (final row in rows) {
+      if (row['deleted_at'] == null) continue; // Skip non-deleted items
+      try {
+        final decryptedJson = await _cryptoService.decrypt(
+          ciphertext: row['ciphertext'],
+          iv: row['iv'],
+          tag: row['tag'],
+          key: key,
+        );
+
+        final data = jsonDecode(decryptedJson);
+
+        entries.add(
+          VaultEntry(
+            id: row['id'],
+            type: VaultType.values.firstWhere(
+              (e) => e.name == data['type'],
+              orElse: () => VaultType.login,
+            ),
+            title: data['title'] ?? 'Untitled',
+            username: data['username'],
+            password: data['password'],
+            notes: data['notes'],
+            category: data['category'],
+            data: (data['data'] as Map<String, dynamic>?) ?? {},
+            createdAt: DateTime.fromMillisecondsSinceEpoch(row['created_at']),
+            updatedAt: DateTime.fromMillisecondsSinceEpoch(row['updated_at']),
+            deletedAt: DateTime.fromMillisecondsSinceEpoch(row['deleted_at']),
+          ),
+        );
+      } catch (e) {
+        print('Failed to decrypt deleted entry ${row['id']}: $e');
       }
     }
     return entries;
@@ -105,12 +153,40 @@ class VaultRepository {
     });
   }
 
+  /// Soft delete - moves to trash
   Future<void> deleteEntry(String id) async {
+    await _dbService.updateEntry({
+      'id': id,
+      'deleted_at': DateTime.now().millisecondsSinceEpoch,
+    });
+  }
+
+  /// Soft delete - moves multiple to trash
+  Future<void> deleteEntries(List<String> ids) async {
+    for (final id in ids) {
+      await deleteEntry(id);
+    }
+  }
+
+  Future<void> restoreEntry(String id) async {
+    await _dbService.updateEntry({
+      'id': id,
+      'deleted_at': null,
+    });
+  }
+
+  /// Actually removes from database
+  Future<void> permanentDeleteEntry(String id) async {
     await _dbService.deleteEntry(id);
   }
 
-  Future<void> deleteEntries(List<String> ids) async {
-    await _dbService.deleteEntries(ids);
+  Future<void> emptyTrash() async {
+    final rows = await _dbService.getAllEntries();
+    for (final row in rows) {
+      if (row['deleted_at'] != null) {
+        await _dbService.deleteEntry(row['id']);
+      }
+    }
   }
 
   Future<void> deleteAllEntries() async {

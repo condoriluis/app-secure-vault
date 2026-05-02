@@ -369,7 +369,8 @@ class _TOTPWidgetState extends State<TOTPWidget> {
                         ),
                       ),
                     ),
-                    if (i < _code.length - 1 && i != 2) const SizedBox(width: 8),
+                    if (i < _code.length - 1 && i != 2)
+                      const SizedBox(width: 8),
                   ],
                 ],
               ),
@@ -453,18 +454,41 @@ class IdentityWidget extends StatelessWidget {
         child: Stack(
           children: [
             Positioned(
-              top: -100,
+              top: -150,
               left: -100,
               child: Transform.rotate(
-                angle: -0.5,
+                angle: -0.4,
                 child: Container(
-                  width: 300,
-                  height: 200,
+                  width: 500,
+                  height: 300,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
                         Colors.white.withOpacity(0.0),
-                        Colors.white.withOpacity(0.05),
+                        Colors.white.withOpacity(0.25),
+                        Colors.white.withOpacity(0.5),
+                        Colors.white.withOpacity(0.25),
+                        Colors.white.withOpacity(0.0),
+                      ],
+                      stops: const [0.2, 0.45, 0.5, 0.55, 0.8],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 0,
+              right: -20,
+              child: Transform.rotate(
+                angle: 0.5,
+                child: Container(
+                  width: 400,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.white.withOpacity(0.0),
+                        Colors.white.withOpacity(0.15),
                         Colors.white.withOpacity(0.0),
                       ],
                     ),
@@ -472,90 +496,66 @@ class IdentityWidget extends StatelessWidget {
                 ),
               ),
             ),
-            Positioned(
-              right: -20,
-              bottom: -20,
-              child: Icon(
-                Icons.badge_outlined,
-                size: 150,
-                color: (isDark ? Colors.white : theme.colorScheme.primary)
-                    .withOpacity(0.05),
-              ),
-            ),
+
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.sim_card_outlined,
-                        color:
-                            (isDark ? Colors.white : theme.colorScheme.primary)
-                                .withOpacity(0.3),
-                        size: 24,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        type.toUpperCase(),
-                        style: TextStyle(
-                          color: isDark
-                              ? Colors.white
-                              : theme.colorScheme.primary,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 16,
-                          letterSpacing: 2,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withOpacity(0.1),
-                              offset: const Offset(0, 1),
-                              blurRadius: 1,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Spacer(),
-                      Icon(
-                        Icons.public,
-                        color:
-                            (isDark ? Colors.white : theme.colorScheme.primary)
-                                .withOpacity(0.6),
-                        size: 20,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        width: 60,
-                        height: 75,
-                        decoration: BoxDecoration(
-                          color:
-                              (isDark
-                                      ? Colors.white
-                                      : theme.colorScheme.primary)
-                                  .withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color:
-                                (isDark
-                                        ? Colors.white
-                                        : theme.colorScheme.primary)
-                                    .withOpacity(0.2),
+                      Column(
+                        children: [
+                          Container(
+                            width: 60,
+                            height: 75,
+                            decoration: BoxDecoration(
+                              color:
+                                  (isDark
+                                          ? Colors.white
+                                          : theme.colorScheme.primary)
+                                      .withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color:
+                                    (isDark
+                                            ? Colors.white
+                                            : theme.colorScheme.primary)
+                                        .withOpacity(0.2),
+                              ),
+                            ),
+                            child: Icon(
+                              Icons.person,
+                              size: 50,
+                              color:
+                                  (isDark
+                                          ? Colors.white
+                                          : theme.colorScheme.primary)
+                                      .withOpacity(0.4),
+                            ),
                           ),
-                        ),
-                        child: Icon(
-                          Icons.person,
-                          size: 50,
-                          color:
-                              (isDark
-                                      ? Colors.white
-                                      : theme.colorScheme.primary)
-                                  .withOpacity(0.4),
-                        ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: 65,
+                            child: Text(
+                              type.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                color:
+                                    (isDark
+                                            ? Colors.white
+                                            : theme.colorScheme.primary)
+                                        .withOpacity(0.8),
+                                letterSpacing: 0.5,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(width: 20),
                       Expanded(
