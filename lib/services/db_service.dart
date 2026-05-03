@@ -107,6 +107,21 @@ class DbService {
     );
   }
 
+  Future<void> bulkRestoreEntries() async {
+    await _db?.update(
+      tableEntries,
+      {'deleted_at': null},
+      where: 'deleted_at IS NOT NULL',
+    );
+  }
+
+  Future<void> bulkPermanentDeleteDeleted() async {
+    await _db?.delete(
+      tableEntries,
+      where: 'deleted_at IS NOT NULL',
+    );
+  }
+
   Future<void> clearAllData() async {
     await _db?.delete(tableEntries);
     await _db?.delete(tableMeta);

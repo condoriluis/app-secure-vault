@@ -10,7 +10,6 @@ import 'package:secure_vault/ui/screens/home_screen.dart'
 import 'package:secure_vault/providers/security_provider.dart';
 import 'package:secure_vault/ui/screens/auth_check_screen.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:secure_vault/main.dart' show isPickingFile;
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({Key? key}) : super(key: key);
@@ -285,7 +284,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     setState(() => _isLoading = true);
     try {
-      isPickingFile = true;
+      ref.read(securityProvider.notifier).setBypassingAutoLock(true);
       final backupService = ref.read(backupServiceProvider);
       final filePath = await backupService.exportVault();
 
@@ -310,7 +309,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (_isLoading) return;
     setState(() => _isLoading = true);
     try {
-      isPickingFile = true;
+      ref.read(securityProvider.notifier).setBypassingAutoLock(true);
       final fp.FilePickerResult? result = await fp.FilePicker.pickFiles(
         type: fp.FileType.custom,
         allowedExtensions: ['vault', 'json'],
@@ -347,6 +346,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           backgroundColor: Colors.green.shade700,
           durationSeconds: 4,
         );
+
+        if (mounted) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
       }
     } catch (e) {
       if (!mounted) return;
@@ -536,7 +539,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             SizedBox(height: 12),
             Text(
               'Esta acción es IRREVERSIBLE. Se eliminarán permanentemente:\n\n'
-              '• Todos tus registros y contraseñas\n'
+              '• Todos tus registros y datos sensibles\n'
               '• Tu Clave Maestra y Master Salt\n'
               '• Tu PIN y configuración Biométrica\n'
               '• Configuraciones y caché de preferencias\n',
@@ -733,7 +736,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 6),
                 _buildSectionTitle(
-                  'Respaldo en la Nube (Zero-Knowledge)',
+                  'Respaldo en Archivo (Zero-Knowledge)',
                   theme,
                 ),
                 Card(
@@ -763,11 +766,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                         ),
                         title: const Text(
-                          'Exportar Bóveda',
+                          'Exportar Respaldo',
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                         subtitle: const Text(
-                          'Crea un archivo cifrado con todas tus contraseñas.',
+                          'Crea un archivo cifrado para guardar fuera de la app.',
                         ),
                         onTap: _isLoading ? null : _exportVault,
                       ),
@@ -790,11 +793,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                         ),
                         title: const Text(
-                          'Importar Bóveda',
+                          'Importar desde Archivo',
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                         subtitle: const Text(
-                          'Restaura tus contraseñas desde un archivo.',
+                          'Restaura tus datos desde un archivo .vault',
                         ),
                         onTap: _isLoading ? null : _importVault,
                       ),
@@ -814,7 +817,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Tus respaldos están cifrados militarmente. Nadie puede leer tus contraseñas sin tu Clave Maestra.',
+                          'Tus respaldos están cifrados militarmente. Nadie puede leer tus datos sin tu Clave Maestra.',
                           style: TextStyle(
                             fontSize: 12,
                             color: theme.colorScheme.onSurface.withOpacity(0.6),
@@ -920,13 +923,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 20),
-            Text(
-              'Tiempo de Bloqueo',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSurface,
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                'Solicitar desbloqueo después de que la app esté invisible:',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
               ),
             ),
             const SizedBox(height: 12),

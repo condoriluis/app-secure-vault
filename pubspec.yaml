@@ -54,6 +54,8 @@ dependencies:
   flutter_quill: ^11.5.0
   flutter_localizations:
     sdk: flutter
+  qr_flutter: ^4.1.0
+  screen_protector: ^1.1.2
 
 dev_dependencies:
   flutter_test:

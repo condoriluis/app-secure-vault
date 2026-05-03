@@ -48,7 +48,7 @@ class HowItWorksScreen extends StatelessWidget {
       (
         Icons.timer_off_rounded,
         'Bloqueo Automático',
-        'Configura un tiempo de inactividad (inmediato, 1 min, 5 min o nunca). '
+        'Configura un tiempo de inactividad (inmediato, 10 seg, 1 min, 5 min o 10 min). '
             'La app se bloquea sola al salir o al cumplirse el tiempo.',
         Colors.purple.shade400,
       ),

@@ -169,24 +169,19 @@ class VaultRepository {
   }
 
   Future<void> restoreEntry(String id) async {
-    await _dbService.updateEntry({
-      'id': id,
-      'deleted_at': null,
-    });
+    await _dbService.updateEntry({'id': id, 'deleted_at': null});
   }
 
-  /// Actually removes from database
   Future<void> permanentDeleteEntry(String id) async {
     await _dbService.deleteEntry(id);
   }
 
+  Future<void> restoreAllEntries() async {
+    await _dbService.bulkRestoreEntries();
+  }
+
   Future<void> emptyTrash() async {
-    final rows = await _dbService.getAllEntries();
-    for (final row in rows) {
-      if (row['deleted_at'] != null) {
-        await _dbService.deleteEntry(row['id']);
-      }
-    }
+    await _dbService.bulkPermanentDeleteDeleted();
   }
 
   Future<void> deleteAllEntries() async {

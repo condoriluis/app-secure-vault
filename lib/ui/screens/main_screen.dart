@@ -57,6 +57,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     );
   }
 
+
   void _openSettings() {
     Navigator.of(context).pop();
     Navigator.of(
@@ -178,6 +179,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               icon: Icons.delete_outline_rounded,
               label: 'Papelera',
               onTap: _openTrash,
+              badgeCount: ref.watch(trashListProvider).when(
+                    data: (entries) => entries.length,
+                    loading: () => 0,
+                    error: (_, __) => 0,
+                  ),
             ),
             _drawerItem(
               context,
@@ -333,6 +339,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     required String label,
     required VoidCallback onTap,
     Color? color,
+    int? badgeCount,
   }) {
     final theme = Theme.of(context);
     final effectiveColor = color ?? theme.colorScheme.onSurface;
@@ -346,6 +353,28 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           fontSize: 15,
         ),
       ),
+      trailing: badgeCount != null && badgeCount > 0
+          ? Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: theme.colorScheme.primary.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                '$badgeCount',
+                style: TextStyle(
+                  color: theme.colorScheme.primary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'JetBrainsMono',
+                ),
+              ),
+            )
+          : null,
       onTap: onTap,
       horizontalTitleGap: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -398,14 +427,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             title: Container(
               height: 48,
               decoration: BoxDecoration(
-                color: isDark
-                    ? theme.colorScheme.surface.withOpacity(0.8)
-                    : theme.colorScheme.surface,
+                color: primaryColor.withOpacity(isDark ? 0.15 : 0.08),
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: isDark
-                      ? Colors.white.withOpacity(0.1)
-                      : primaryColor.withOpacity(0.2),
+                  color: primaryColor.withOpacity(isDark ? 0.3 : 0.2),
                   width: 1.5,
                 ),
                 boxShadow: [
@@ -418,28 +443,30 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               ),
               child: Row(
                 children: [
-                  // Hamburger
                   Builder(
                     builder: (ctx) => IconButton(
                       icon: const Icon(Icons.menu_rounded, size: 22),
                       onPressed: () => Scaffold.of(ctx).openDrawer(),
-                      color: primaryColor,
+                      color: isDark ? Colors.white : Colors.black87,
                       tooltip: 'Menú',
                     ),
                   ),
-                  // Search bar
                   Expanded(
                     child: TextField(
                       controller: _searchController,
+                      cursorColor: primaryColor,
                       style: TextStyle(
                         fontSize: 14,
-                        color: theme.colorScheme.onSurface,
+                        color: isDark ? Colors.white : Colors.black,
+                        fontWeight: FontWeight.w500,
                       ),
                       decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.transparent,
                         hintText: 'Buscar en bóveda...',
                         hintStyle: TextStyle(
                           fontSize: 14,
-                          color: theme.colorScheme.onSurface.withOpacity(0.45),
+                          color: isDark ? Colors.white54 : Colors.black45,
                         ),
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
@@ -473,7 +500,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                           FocusManager.instance.primaryFocus?.unfocus(),
                     ),
                   ),
-                  // Lock
                   IconButton(
                     icon: Icon(
                       ref.watch(authServiceProvider).isAuthenticated

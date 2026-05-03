@@ -20,6 +20,11 @@ class TrashScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    final isEmpty = trashAsync.maybeWhen(
+      data: (entries) => entries.isEmpty,
+      orElse: () => true,
+    );
+
     return Scaffold(
       backgroundColor: isDark ? null : theme.colorScheme.background,
       appBar: AppBar(
@@ -31,8 +36,13 @@ class TrashScreen extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         actions: [
           IconButton(
+            icon: const Icon(Icons.settings_backup_restore_rounded),
+            onPressed: isEmpty ? null : () => _showRestoreAllDialog(context, ref),
+            tooltip: 'Restaurar todo',
+          ),
+          IconButton(
             icon: const Icon(Icons.delete_sweep_rounded),
-            onPressed: () => _showEmptyTrashDialog(context, ref),
+            onPressed: isEmpty ? null : () => _showEmptyTrashDialog(context, ref),
             tooltip: 'Vaciar papelera',
           ),
         ],
@@ -276,6 +286,47 @@ class TrashScreen extends ConsumerWidget {
           context,
           'Papelera vaciada',
           backgroundColor: Colors.blueGrey,
+        );
+      }
+    }
+  }
+
+  Future<void> _showRestoreAllDialog(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('¿Restaurar todo?'),
+        content: const Text(
+          'Se restaurarán todos los elementos de la papelera a la bóveda principal.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              'Restaurar Todo',
+              style: TextStyle(color: Theme.of(context).colorScheme.primary),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await ref.read(vaultRepositoryProvider).restoreAllEntries();
+      ref.invalidate(trashListProvider);
+      ref.invalidate(vaultListProvider);
+      if (context.mounted) {
+        showCustomSnackBar(
+          context,
+          'Todos los elementos han sido restaurados',
+          backgroundColor: Colors.green,
         );
       }
     }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:secure_vault/services/auth_service.dart';
 import 'package:secure_vault/ui/screens/main_screen.dart';
 import 'package:secure_vault/ui/widgets/snackbar_message.dart';
+import 'package:secure_vault/providers/security_provider.dart';
 
 class AnimatedLoginScreen extends ConsumerStatefulWidget {
   const AnimatedLoginScreen({super.key});
@@ -20,12 +21,10 @@ class _AnimatedLoginScreenState extends ConsumerState<AnimatedLoginScreen>
   bool _hasPin = false;
   bool _hasBiometrics = false;
 
-  // Animation Controllers
   late AnimationController _logoController;
   late AnimationController _contentController;
   late AnimationController _pulseController;
 
-  // Animations
   late Animation<double> _logoFadeAnimation;
   late Animation<double> _logoScaleAnimation;
   late Animation<double> _logoRotationAnimation;
@@ -55,11 +54,12 @@ class _AnimatedLoginScreenState extends ConsumerState<AnimatedLoginScreen>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final auth = ref.read(authServiceProvider);
+      final security = ref.read(securityProvider);
       if (auth.wasAutoLocked) {
         auth.wasAutoLocked = false;
         showCustomSnackBar(
           context,
-          'Sesión cerrada por seguridad tras 1 min fuera de la app',
+          'Sesión cerrada por seguridad (${security.autoLockTimeout.label})',
           backgroundColor: Colors.orange.shade800,
           durationSeconds: 4,
         );
@@ -68,25 +68,20 @@ class _AnimatedLoginScreenState extends ConsumerState<AnimatedLoginScreen>
   }
 
   void _initializeAnimations() {
-    // Logo animation controller (800ms)
     _logoController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
 
-    // Content animation controller (1200ms)
     _contentController = AnimationController(
       duration: const Duration(milliseconds: 1200),
       vsync: this,
     );
 
-    // Pulse animation controller (continuous)
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 2000),
       vsync: this,
     )..repeat(reverse: true);
-
-    // Logo animations
     _logoFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _logoController,
@@ -112,7 +107,6 @@ class _AnimatedLoginScreenState extends ConsumerState<AnimatedLoginScreen>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    // Title animations (starts at 200ms)
     _titleFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _contentController,
@@ -128,7 +122,6 @@ class _AnimatedLoginScreenState extends ConsumerState<AnimatedLoginScreen>
           ),
         );
 
-    // Subtitle animations (starts at 400ms)
     _subtitleFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _contentController,
@@ -144,7 +137,6 @@ class _AnimatedLoginScreenState extends ConsumerState<AnimatedLoginScreen>
           ),
         );
 
-    // Field animations (starts at 600ms)
     _fieldFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _contentController,
@@ -160,7 +152,6 @@ class _AnimatedLoginScreenState extends ConsumerState<AnimatedLoginScreen>
           ),
         );
 
-    // Button animations (starts at 800ms)
     _buttonFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _contentController,
@@ -176,7 +167,6 @@ class _AnimatedLoginScreenState extends ConsumerState<AnimatedLoginScreen>
           ),
         );
 
-    // Options animations (starts at 1000ms)
     _optionsFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _contentController,
@@ -303,6 +293,7 @@ class _AnimatedLoginScreenState extends ConsumerState<AnimatedLoginScreen>
   Future<void> _loginWithBio() async {
     setState(() => _isLoading = true);
     try {
+      ref.read(securityProvider.notifier).setBypassingAutoLock(true);
       final success = await ref.read(authServiceProvider).loginWithBiometrics();
       if (success) {
         if (mounted) {

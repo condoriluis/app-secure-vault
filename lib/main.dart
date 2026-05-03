@@ -8,6 +8,7 @@ import 'package:secure_vault/services/db_service.dart';
 import 'package:secure_vault/ui/screens/auth_check_screen.dart';
 
 import 'package:secure_vault/providers/security_provider.dart';
+import 'package:secure_vault/services/security_service.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 
@@ -31,8 +32,6 @@ class MyApp extends ConsumerStatefulWidget {
   ConsumerState<MyApp> createState() => _MyAppState();
 }
 
-bool isPickingFile = false;
-
 class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   DateTime? _pausedTime;
 
@@ -50,34 +49,47 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final timeout = ref.read(securityProvider).autoLockTimeout.duration;
+    final security = ref.read(securityProvider);
+    final timeout = security.autoLockTimeout.duration;
 
     if (state == AppLifecycleState.paused) {
-      _pausedTime = DateTime.now();
+      _pausedTime ??= DateTime.now();
 
-      if (timeout == Duration.zero && !isPickingFile) {
-        ref.read(authServiceProvider).logout();
+      if (!security.isBypassingAutoLock && timeout == Duration.zero) {
+        final auth = ref.read(authServiceProvider);
+        auth.logout();
+        auth.wasAutoLocked = true;
+        navigatorKey.currentState?.pushNamedAndRemoveUntil(
+          '/',
+          (route) => false,
+        );
       }
+    } else if (state == AppLifecycleState.inactive) {
+      _pausedTime ??= DateTime.now();
     } else if (state == AppLifecycleState.resumed) {
-      if (isPickingFile) {
-        isPickingFile = false;
+      if (security.isBypassingAutoLock) {
+        ref.read(securityProvider.notifier).setBypassingAutoLock(false);
         _pausedTime = null;
         return;
       }
-      if (_pausedTime != null && timeout != null && timeout != Duration.zero) {
+
+      if (_pausedTime != null) {
         final elapsed = DateTime.now().difference(_pausedTime!);
-        if (elapsed >= timeout) {
-          ref.read(authServiceProvider).logout();
+        bool shouldLock = false;
+
+        if (timeout != Duration.zero && timeout != null && elapsed >= timeout) {
+          shouldLock = true;
+        }
+
+        if (shouldLock) {
+          final auth = ref.read(authServiceProvider);
+          auth.logout();
+          auth.wasAutoLocked = true;
           navigatorKey.currentState?.pushNamedAndRemoveUntil(
             '/',
             (route) => false,
           );
         }
-      } else if (timeout == Duration.zero) {
-        navigatorKey.currentState?.pushNamedAndRemoveUntil(
-          '/',
-          (route) => false,
-        );
       }
       _pausedTime = null;
     }
@@ -87,6 +99,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final themeState = ref.watch(themeProvider);
     final colorTheme = ref.read(themeProvider.notifier).colorTheme;
+    SecurityService.setSecureMode(true);
 
     return MaterialApp(
       navigatorKey: navigatorKey,
